@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch CamShooters Controller
 // @namespace    https://github.com/HermanGuilliman/Twitch-CamShooters-Controller
-// @version      0.2
+// @version      0.3
 // @description  Компактная панель управления для игры CamShooters (by Camelot63RU)
 // @author       Herman Guilliman
 // @match        https://www.twitch.tv/*
@@ -19,26 +19,21 @@
     const CONFIG = {
         containerId: "twitch-camshooters-panel",
         storageKey: "camshooters_collapsed",
+
         commands: [
             { cmd: "!go", hint: "Принять участие в битве", color: "#4fd682" },
-            {
-                cmd: "!buff",
-                hint: "Случайное влияние на персонажа",
-                color: "#5dade2",
-            },
-            {
-                cmd: "!combo",
-                hint: "Активировать ивент (нужно 3 килла)",
-                color: "#f4d03f",
-            },
-            {
-                cmd: "!tag",
-                hint: "Нарисовать под собой граффити",
-                color: "#af7ac5",
-            },
-            { cmd: "!yo", hint: "Обратить на себя внимание", color: "#eb984e" },
-            { cmd: "!fart", hint: "Дать гадзу!", color: "#ec7063" },
+            { cmd: "!buff", hint: "Случайное влияние на персонажа", color: "#5dade2" },
+            { cmd: "!combo", hint: "Активировать ивент (нужно 3 килла)", color: "#f4d03f" },
+            { cmd: "!tag", hint: "Нарисовать граффити под ногами", color: "#af7ac5" },
+            { cmd: "!yo", hint: "Обратить на себя внимание противников", color: "#eb984e" },
+            { cmd: "!fart", hint: "Пустить газы", color: "#ec7063" },
             { cmd: "!dance", hint: "Танцевать", color: "#ff79c6" },
+        ],
+
+        maps: [
+            { cmd: "!map 1", label: "Карта 1", color: "#1abc9c" },
+            { cmd: "!map 2", label: "Карта 2", color: "#1abc9c" },
+            { cmd: "!map 3", label: "Карта 3", color: "#1abc9c" },
         ],
     };
 
@@ -173,28 +168,45 @@
                 justifyContent: "space-between",
                 userSelect: "none",
                 backgroundColor: "var(--color-background-alt)",
+                height: "24px",
             });
 
             const titleSpan = document.createElement("span");
             titleSpan.textContent = "🔫 Панель CamShooters";
+
+            const rightControls = document.createElement("div");
+            Object.assign(rightControls.style, {
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+            });
+
+            const mapDropdown = this._createMapDropdownInHeader();
 
             const arrowSpan = document.createElement("span");
             arrowSpan.textContent = this.isCollapsed ? "▶" : "▼";
             arrowSpan.style.fontSize = "8px";
             this.elements.arrowSpan = arrowSpan;
 
-            header.appendChild(titleSpan);
-            header.appendChild(arrowSpan);
+            rightControls.appendChild(mapDropdown);
+            rightControls.appendChild(arrowSpan);
 
-            header.onclick = () => this.toggleCollapse();
+            header.appendChild(titleSpan);
+            header.appendChild(rightControls);
+
+            header.onclick = (e) => {
+                if (!mapDropdown.contains(e.target)) {
+                    this.toggleCollapse();
+                }
+            };
 
             return header;
         }
 
-        _createButton(data) {
+        _createButton(data, labelOverride = null) {
             const btn = document.createElement("button");
-            btn.textContent = data.cmd;
-            btn.title = data.hint;
+            btn.textContent = labelOverride || data.cmd;
+            btn.title = data.hint || data.cmd;
 
             Object.assign(btn.style, {
                 backgroundColor:
@@ -209,6 +221,8 @@
                 fontSize: "11px",
                 fontFamily: "inherit",
                 transition: "filter 0.2s, background-color 0.2s",
+                flexGrow: "1",
+                textAlign: "center",
             });
 
             btn.onmouseenter = () =>
@@ -226,6 +240,70 @@
 
             return btn;
         }
+
+        _createMapDropdownInHeader() {
+            const wrapper = document.createElement("div");
+            Object.assign(wrapper.style, {
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+            });
+
+            const globeIcon = document.createElement("span");
+            globeIcon.textContent = "🌏";
+            globeIcon.title = "Выбор карты";
+            Object.assign(globeIcon.style, {
+                cursor: "pointer",
+                fontSize: "14px",
+                transition: "opacity 0.2s",
+            });
+
+            const dropdown = document.createElement("div");
+            Object.assign(dropdown.style, {
+                position: "absolute",
+                bottom: "100%",
+                right: "0",
+                backgroundColor: "var(--color-background-alt)",
+                border: "1px solid var(--color-border-base)",
+                borderRadius: "4px",
+                padding: "4px",
+                display: "none",
+                flexDirection: "column",
+                gap: "4px",
+                zIndex: "10001",
+                boxShadow: "0 4px 6px rgba(0,0,0,0.3)",
+                minWidth: "80px",
+            });
+
+            CONFIG.maps.forEach((mapData) => {
+                const mapBtn = this._createButton(mapData, mapData.label);
+                mapBtn.style.textAlign = "left";
+                mapBtn.style.fontSize = "10px";
+                mapBtn.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.chatService.sendMessage(mapData.cmd);
+                    dropdown.style.display = "none";
+                };
+                dropdown.appendChild(mapBtn);
+            });
+
+            wrapper.onmouseenter = () => {
+                dropdown.style.display = "flex";
+                globeIcon.style.opacity = "0.7";
+            };
+            wrapper.onmouseleave = () => {
+                dropdown.style.display = "none";
+                globeIcon.style.opacity = "1";
+            };
+
+            globeIcon.onclick = (e) => e.stopPropagation();
+
+            wrapper.appendChild(globeIcon);
+            wrapper.appendChild(dropdown);
+
+            return wrapper;
+        }
     }
 
     class CamShootersApp {
@@ -237,7 +315,6 @@
 
         init() {
             console.log("[CamShooters] Panel started");
-
             this.checkInterval = setInterval(() => this.mount(), 1000);
         }
 
