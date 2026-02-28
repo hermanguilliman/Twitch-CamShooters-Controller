@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch CamShooters Controller
 // @namespace    https://github.com/HermanGuilliman/Twitch-CamShooters-Controller
-// @version      0.5
+// @version      0.6
 // @description  Компактная панель управления для игры CamShooters (by Camelot63RU)
 // @author       Herman Guilliman
 // @match        https://www.twitch.tv/*
@@ -159,13 +159,13 @@
                 }
 
                 console.log(
-                    "[CamShooters] InputEvent не сработал, пробуем execCommand...",
+                    "[CamShooters] InputEvent не сработал, пробуем Range/Selection...",
                 );
-                this._insertViaExecCommand(inputEl, text);
+                this._insertViaRange(inputEl, text);
             }, 50);
         }
 
-        _insertViaExecCommand(inputEl, text) {
+        _insertViaRange(inputEl, text) {
             inputEl.focus();
 
             const sel = window.getSelection();
@@ -174,22 +174,38 @@
             sel.removeAllRanges();
             sel.addRange(range);
 
-            document.execCommand("delete", false);
-            document.execCommand("insertText", false, text);
+            range.deleteContents();
+
+            const textNode = document.createTextNode(text);
+
+            range.insertNode(textNode);
+
+            range.setStartAfter(textNode);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            const inputEvent = new InputEvent("input", {
+                bubbles: true,
+                cancelable: false,
+                inputType: "insertText",
+                data: text,
+            });
+            inputEl.dispatchEvent(inputEvent);
 
             setTimeout(() => {
                 const currentText = inputEl.textContent.trim();
                 console.log(
-                    `[CamShooters] Текст после execCommand: "${currentText}"`,
+                    `[CamShooters] Текст после Range: "${currentText}"`,
                 );
 
                 if (!currentText || currentText !== text) {
                     console.log(
-                        "[CamShooters] execCommand не сработал, пробуем clipboard...",
+                        "[CamShooters] Range не сработал, пробуем clipboard...",
                     );
                     this._insertViaClipboard(inputEl, text);
                 } else {
-                    console.log("[CamShooters] ✓ execCommand сработал");
+                    console.log("[CamShooters] ✓ Range сработал");
                 }
             }, 50);
         }
@@ -203,11 +219,29 @@
             sel.removeAllRanges();
             sel.addRange(range);
 
+            range.deleteContents();
+
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard
                     .writeText(text)
                     .then(() => {
-                        document.execCommand("paste");
+                        const clipboardData = new DataTransfer();
+                        clipboardData.setData("text/plain", text);
+
+                        const pasteEvent = new ClipboardEvent("paste", {
+                            bubbles: true,
+                            cancelable: true,
+                            clipboardData: clipboardData,
+                        });
+
+                        inputEl.dispatchEvent(pasteEvent);
+
+                        const inputEvent = new InputEvent("input", {
+                            bubbles: true,
+                            cancelable: false,
+                            inputType: "insertFromPaste",
+                        });
+                        inputEl.dispatchEvent(inputEvent);
                     })
                     .catch(() => {
                         this._insertDirectDOM(inputEl, text);
