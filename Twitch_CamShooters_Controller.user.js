@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch CamShooters Controller
 // @namespace    https://github.com/HermanGuilliman/Twitch-CamShooters-Controller
-// @version      0.3
+// @version      0.4
 // @description  Компактная панель управления для игры CamShooters (by Camelot63RU)
 // @author       Herman Guilliman
 // @match        https://www.twitch.tv/*
@@ -22,10 +22,26 @@
 
         commands: [
             { cmd: "!go", hint: "Принять участие в битве", color: "#4fd682" },
-            { cmd: "!buff", hint: "Случайное влияние на персонажа", color: "#5dade2" },
-            { cmd: "!combo", hint: "Активировать ивент (нужно 3 килла)", color: "#f4d03f" },
-            { cmd: "!tag", hint: "Нарисовать граффити под ногами", color: "#af7ac5" },
-            { cmd: "!yo", hint: "Обратить на себя внимание противников", color: "#eb984e" },
+            {
+                cmd: "!buff",
+                hint: "Случайное влияние на персонажа",
+                color: "#5dade2",
+            },
+            {
+                cmd: "!combo",
+                hint: "Активировать ивент (нужно 3 килла)",
+                color: "#f4d03f",
+            },
+            {
+                cmd: "!tag",
+                hint: "Нарисовать граффити под ногами",
+                color: "#af7ac5",
+            },
+            {
+                cmd: "!yo",
+                hint: "Обратить на себя внимание противников",
+                color: "#eb984e",
+            },
             { cmd: "!fart", hint: "Пустить газы", color: "#ec7063" },
             { cmd: "!dance", hint: "Танцевать", color: "#ff79c6" },
         ],
@@ -45,47 +61,275 @@
             };
         }
 
+        _getReactFiber(element) {
+            for (const key of Object.keys(element)) {
+                if (
+                    key.startsWith("__reactFiber$") ||
+                    key.startsWith("__reactInternalInstance$")
+                ) {
+                    return element[key];
+                }
+            }
+            return null;
+        }
+
+        _getReactProps(element) {
+            for (const key of Object.keys(element)) {
+                if (key.startsWith("__reactProps$")) {
+                    return element[key];
+                }
+            }
+            return null;
+        }
+
+        _findChatController(fiber) {
+            let current = fiber;
+            for (let i = 0; i < 50 && current; i++) {
+                const stateNode = current.stateNode;
+
+                if (stateNode && stateNode.props) {
+                    if (typeof stateNode.props.onSend === "function") {
+                        return {
+                            type: "chatComponent",
+                            node: stateNode,
+                            fiber: current,
+                        };
+                    }
+                }
+
+                if (
+                    stateNode &&
+                    typeof stateNode.setLocalChatInput === "function"
+                ) {
+                    return {
+                        type: "localChat",
+                        node: stateNode,
+                        fiber: current,
+                    };
+                }
+
+                current = current.return;
+            }
+            return null;
+        }
+
         sendMessage(text) {
-            const inputEditor = document.querySelector(this.selectors.input);
+            console.log(`[CamShooters] Отправка: "${text}"`);
+
+            const inputEl = document.querySelector(this.selectors.input);
+            if (!inputEl) {
+                console.warn("[CamShooters] Поле чата не найдено");
+                return;
+            }
+            inputEl.focus();
+            setTimeout(() => {
+                this._insertText(inputEl, text);
+
+                setTimeout(() => {
+                    this._submit(inputEl);
+                }, 100);
+            }, 50);
+        }
+
+        _insertText(inputEl, text) {
+            inputEl.focus();
+
+            const sel = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(inputEl);
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            const deleteEvent = new InputEvent("beforeinput", {
+                bubbles: true,
+                cancelable: true,
+                inputType: "deleteContentBackward",
+            });
+            inputEl.dispatchEvent(deleteEvent);
+
+            const beforeInputEvent = new InputEvent("beforeinput", {
+                bubbles: true,
+                cancelable: true,
+                inputType: "insertText",
+                data: text,
+            });
+            inputEl.dispatchEvent(beforeInputEvent);
+
+            const inputEvent = new InputEvent("input", {
+                bubbles: true,
+                cancelable: false,
+                inputType: "insertText",
+                data: text,
+            });
+            inputEl.dispatchEvent(inputEvent);
+
+            setTimeout(() => {
+                const currentText = inputEl.textContent.trim();
+                console.log(
+                    `[CamShooters] Текст в поле после InputEvent: "${currentText}"`,
+                );
+
+                if (currentText === text) {
+                    console.log(
+                        "[CamShooters] ✓ React принял текст через InputEvent",
+                    );
+                    return;
+                }
+
+                console.log(
+                    "[CamShooters] InputEvent не сработал, пробуем execCommand...",
+                );
+                this._insertViaExecCommand(inputEl, text);
+            }, 50);
+        }
+
+        _insertViaExecCommand(inputEl, text) {
+            inputEl.focus();
+
+            const sel = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(inputEl);
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            document.execCommand("delete", false);
+
+            document.execCommand("insertText", false, text);
+
+            setTimeout(() => {
+                const currentText = inputEl.textContent.trim();
+                console.log(
+                    `[CamShooters] Текст после execCommand: "${currentText}"`,
+                );
+
+                if (!currentText || currentText !== text) {
+                    console.log(
+                        "[CamShooters] execCommand не сработал, пробуем clipboard...",
+                    );
+                    this._insertViaClipboard(inputEl, text);
+                } else {
+                    console.log("[CamShooters] ✓ execCommand сработал");
+                }
+            }, 50);
+        }
+
+        _insertViaClipboard(inputEl, text) {
+            inputEl.focus();
+
+            const sel = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(inputEl);
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard
+                    .writeText(text)
+                    .then(() => {
+                        document.execCommand("paste");
+                    })
+                    .catch(() => {
+                        this._insertDirectDOM(inputEl, text);
+                    });
+            } else {
+                this._insertDirectDOM(inputEl, text);
+            }
+        }
+
+        _insertDirectDOM(inputEl, text) {
+            console.log(
+                "[CamShooters] Последний fallback: прямой DOM + React setter",
+            );
+
+            inputEl.focus();
+            inputEl.textContent = "";
+
+            const span = document.createElement("span");
+            span.setAttribute("data-a-target", "chat-input-text");
+            span.textContent = text;
+            inputEl.appendChild(span);
+
+            const sel = window.getSelection();
+            const range = document.createRange();
+            range.setStartAfter(span);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            const fiber = this._getReactFiber(inputEl);
+            if (fiber) {
+                let current = fiber;
+                for (let i = 0; i < 80 && current; i++) {
+                    try {
+                        const hooks = current.memoizedState;
+                        if (
+                            hooks &&
+                            hooks.queue &&
+                            typeof hooks.queue.dispatch === "function"
+                        ) {
+                            console.log(
+                                "[CamShooters] Найден React dispatch на уровне",
+                                i,
+                            );
+                        }
+                    } catch (e) {}
+                    current = current.return;
+                }
+            }
+
+            ["input", "change", "keyup", "keydown"].forEach((eventType) => {
+                inputEl.dispatchEvent(new Event(eventType, { bubbles: true }));
+            });
+        }
+
+        _submit(inputEl) {
             const sendButton = document.querySelector(
                 this.selectors.sendButton,
             );
 
-            if (!inputEditor) return;
+            if (sendButton) {
+                const checkAndSend = (attempts = 0) => {
+                    if (attempts > 10) {
+                        console.warn(
+                            "[CamShooters] Кнопка отправки осталась disabled после 10 попыток",
+                        );
 
-            inputEditor.focus();
+                        this._sendEnter(inputEl);
+                        return;
+                    }
 
-            const selection = window.getSelection();
-            const range = document.createRange();
-            range.selectNodeContents(inputEditor);
-            selection.removeAllRanges();
-            selection.addRange(range);
+                    if (
+                        !sendButton.disabled &&
+                        sendButton.getAttribute("aria-disabled") !== "true"
+                    ) {
+                        sendButton.click();
+                        console.log("[CamShooters] ✓ Отправлено через кнопку");
+                    } else {
+                        setTimeout(() => checkAndSend(attempts + 1), 50);
+                    }
+                };
 
-            const dataTransfer = new DataTransfer();
-            dataTransfer.setData("text/plain", text);
+                checkAndSend();
+            } else {
+                this._sendEnter(inputEl);
+            }
+        }
 
-            const pasteEvent = new ClipboardEvent("paste", {
+        _sendEnter(inputEl) {
+            inputEl.focus();
+
+            const enterDown = new KeyboardEvent("keydown", {
                 bubbles: true,
                 cancelable: true,
-                clipboardData: dataTransfer,
+                key: "Enter",
+                code: "Enter",
+                keyCode: 13,
+                which: 13,
             });
 
-            inputEditor.dispatchEvent(pasteEvent);
+            inputEl.dispatchEvent(enterDown);
 
-            setTimeout(() => {
-                if (sendButton && !sendButton.disabled) {
-                    sendButton.click();
-                } else {
-                    const enterEvent = new KeyboardEvent("keydown", {
-                        bubbles: true,
-                        cancelable: true,
-                        keyCode: 13,
-                        which: 13,
-                        key: "Enter",
-                    });
-                    inputEditor.dispatchEvent(enterEvent);
-                }
-            }, 100);
+            console.log("[CamShooters] Enter отправлен");
         }
     }
 
@@ -194,11 +438,11 @@
             header.appendChild(titleSpan);
             header.appendChild(rightControls);
 
-            header.onclick = (e) => {
+            header.addEventListener("click", (e) => {
                 if (!mapDropdown.contains(e.target)) {
                     this.toggleCollapse();
                 }
-            };
+            });
 
             return header;
         }
@@ -207,6 +451,7 @@
             const btn = document.createElement("button");
             btn.textContent = labelOverride || data.cmd;
             btn.title = data.hint || data.cmd;
+            btn.type = "button";
 
             Object.assign(btn.style, {
                 backgroundColor:
@@ -223,20 +468,32 @@
                 transition: "filter 0.2s, background-color 0.2s",
                 flexGrow: "1",
                 textAlign: "center",
+                pointerEvents: "auto",
+                position: "relative",
+                zIndex: "10000",
             });
 
-            btn.onmouseenter = () =>
-                (btn.style.backgroundColor =
-                    "var(--color-background-button-secondary-hover)");
-            btn.onmouseleave = () =>
-                (btn.style.backgroundColor =
-                    "var(--color-background-button-secondary-default)");
+            btn.addEventListener("mouseenter", () => {
+                btn.style.backgroundColor =
+                    "var(--color-background-button-secondary-hover)";
+            });
 
-            btn.onclick = (e) => {
+            btn.addEventListener("mouseleave", () => {
+                btn.style.backgroundColor =
+                    "var(--color-background-button-secondary-default)";
+            });
+
+            btn.addEventListener("mousedown", (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+            });
+
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log(`[CamShooters] Кнопка: ${data.cmd}`);
                 this.chatService.sendMessage(data.cmd);
-            };
+            });
 
             return btn;
         }
@@ -279,25 +536,27 @@
                 const mapBtn = this._createButton(mapData, mapData.label);
                 mapBtn.style.textAlign = "left";
                 mapBtn.style.fontSize = "10px";
-                mapBtn.onclick = (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.chatService.sendMessage(mapData.cmd);
+
+                mapBtn.addEventListener("click", () => {
                     dropdown.style.display = "none";
-                };
+                });
+
                 dropdown.appendChild(mapBtn);
             });
 
-            wrapper.onmouseenter = () => {
+            wrapper.addEventListener("mouseenter", () => {
                 dropdown.style.display = "flex";
                 globeIcon.style.opacity = "0.7";
-            };
-            wrapper.onmouseleave = () => {
+            });
+
+            wrapper.addEventListener("mouseleave", () => {
                 dropdown.style.display = "none";
                 globeIcon.style.opacity = "1";
-            };
+            });
 
-            globeIcon.onclick = (e) => e.stopPropagation();
+            globeIcon.addEventListener("click", (e) => {
+                e.stopPropagation();
+            });
 
             wrapper.appendChild(globeIcon);
             wrapper.appendChild(dropdown);
@@ -314,7 +573,7 @@
         }
 
         init() {
-            console.log("[CamShooters] Panel started");
+            console.log("[CamShooters] Panel started v0.5");
             this.checkInterval = setInterval(() => this.mount(), 1000);
         }
 
@@ -329,6 +588,7 @@
                     panelDOM,
                     chatInputWrapper.firstChild,
                 );
+                console.log("[CamShooters] Панель смонтирована");
             }
         }
     }
