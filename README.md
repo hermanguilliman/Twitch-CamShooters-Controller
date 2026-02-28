@@ -1,6 +1,6 @@
 # 🔫 Twitch CamShooters Controller
 
-![Version](https://img.shields.io/badge/version-0.3-black) ![Author](https://img.shields.io/badge/author-HermanGuilliman-black)
+![Version](https://img.shields.io/badge/version-0.7-black) ![Author](https://img.shields.io/badge/author-HermanGuilliman-black)
 
 Пользовательский скрипт для удобного управления в интерактивной игре [**CamShooters**](https://t.me/TDMzone/1448) (от стримера и независимого разработчика видеоигр [**Camelot63RU**](https://www.twitch.tv/camelot63ru)).
 
@@ -34,26 +34,26 @@
 
 | Кнопка | Цвет | Действие в игре |
 | :--- | :--- | :--- |
-| **!go** | <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#4fd682;"></span> Зеленый | Принять участие в битве |
-| **!buff** | <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#5dade2;"></span> Синий | Случайное влияние на персонажа |
-| **!combo** | <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#f4d03f;"></span> Золотой | Активировать ивент (нужно 3 килла) |
-| **!tag** | <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#af7ac5;"></span> Фиолетовый | Нарисовать граффити под ногами|
-| **!yo** | <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#eb984e;"></span> Оранжевый | Обратить на себя внимание противников |
-| **!fart** | <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#ec7063;"></span> Красный | Пустить газы |
-| **!dance** | <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#ff79c6;"></span> Розовый | Танцевать |
+| **!go** | Зеленый | Принять участие в битве |
+| **!buff** | Синий | Случайное влияние на персонажа |
+| **!combo** | Золотой | Активировать ивент (нужно 3 килла) |
+| **!tag** | Фиолетовый | Нарисовать граффити под ногами|
+| **!yo** | Оранжевый | Обратить на себя внимание противников |
+| **!fart** | Красный | Пустить газы |
+| **!dance** | Розовый | Танцевать (пока не реализована в игре) |
 
 Кнопки для голосования за следующую карту доступны при наведении мыши на иконку глобуса 🌏  
 | Кнопка | Цвет | Действие в игре |
 | :--- | :--- | :--- |
-| **!map 1** | <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#1abc9c;"></span> Изумрудный | Проголосовать за первую карту
-| **!map 2** | <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#1abc9c;"></span> Изумрудный | Проголосовать за вторую карту
-| **!map 3** | <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#1abc9c;"></span> Изумрудный | Проголосовать за третью карту
+| **!map 1** | Изумрудный | Проголосовать за первую карту
+| **!map 2** | Голубой | Проголосовать за вторую карту
+| **!map 3** | Фиолетовый | Проголосовать за третью карту
 
 ## 🛠️ Разработка
 
 *   **Автор:** Herman Guilliman
 *   **Email:** [hermanguilliman@proton.me](mailto:hermanguilliman@proton.me)
-*   **Версия:** 0.3
+*   **Версия:** 0.7
 
 ## 🤝 Благодарности
 
