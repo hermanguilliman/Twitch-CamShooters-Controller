@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch CamShooters Controller
 // @namespace    https://github.com/HermanGuilliman/Twitch-CamShooters-Controller
-// @version      0.6
+// @version      0.7
 // @description  Компактная панель управления для игры CamShooters (by Camelot63RU)
 // @author       Herman Guilliman
 // @match        https://www.twitch.tv/*
@@ -48,8 +48,8 @@
 
         maps: [
             { cmd: "!map 1", label: "Карта 1", color: "#1abc9c" },
-            { cmd: "!map 2", label: "Карта 2", color: "#1abc9c" },
-            { cmd: "!map 3", label: "Карта 3", color: "#1abc9c" },
+            { cmd: "!map 2", label: "Карта 2", color: "#3498db" },
+            { cmd: "!map 3", label: "Карта 3", color: "#9b59b6" },
         ],
     };
 
@@ -500,7 +500,7 @@
             Object.assign(globeIcon.style, {
                 cursor: "pointer",
                 fontSize: "14px",
-                transition: "opacity 0.2s",
+                transition: "opacity 0.2s, transform 0.2s",
             });
 
             const dropdown = document.createElement("div");
@@ -508,39 +508,98 @@
                 position: "absolute",
                 bottom: "100%",
                 right: "0",
-                backgroundColor: "var(--color-background-alt)",
+                backgroundColor: "var(--color-background-base)",
                 border: "1px solid var(--color-border-base)",
                 borderRadius: "4px",
-                padding: "4px",
+                padding: "6px",
                 display: "none",
                 flexDirection: "column",
-                gap: "4px",
-
+                gap: "6px",
                 zIndex: "10003",
-                boxShadow: "0 4px 6px rgba(0,0,0,0.3)",
-                minWidth: "80px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                minWidth: "120px",
+                opacity: "0",
+                transform: "translateY(4px)",
+                transition: "opacity 0.2s ease, transform 0.2s ease",
             });
+
+            const dropdownTitle = document.createElement("div");
+            Object.assign(dropdownTitle.style, {
+                padding: "2px 4px",
+                fontSize: "10px",
+                fontWeight: "600",
+                color: "var(--color-text-alt)",
+                textTransform: "uppercase",
+                borderBottom: "1px solid var(--color-border-base)",
+                marginBottom: "4px",
+            });
+            dropdownTitle.textContent = "Голосование";
+            dropdown.appendChild(dropdownTitle);
 
             CONFIG.maps.forEach((mapData) => {
                 const mapBtn = this._createButton(mapData, mapData.label);
                 mapBtn.style.textAlign = "left";
-                mapBtn.style.fontSize = "10px";
+                mapBtn.style.fontSize = "11px";
+                mapBtn.style.padding = "4px 8px";
+                mapBtn.style.borderRadius = "4px";
+                mapBtn.style.borderLeftWidth = "4px";
+                mapBtn.style.transition =
+                    "background-color 0.2s, transform 0.1s";
+
+                mapBtn.addEventListener("mouseenter", () => {
+                    mapBtn.style.transform = "translateX(2px)";
+                });
+
+                mapBtn.addEventListener("mouseleave", () => {
+                    mapBtn.style.transform = "translateX(0)";
+                });
 
                 mapBtn.addEventListener("click", () => {
-                    dropdown.style.display = "none";
+                    hideDropdown();
                 });
 
                 dropdown.appendChild(mapBtn);
             });
 
-            wrapper.addEventListener("mouseenter", () => {
+            let hideTimeout;
+
+            const showDropdown = () => {
                 dropdown.style.display = "flex";
-                globeIcon.style.opacity = "0.7";
+                setTimeout(() => {
+                    dropdown.style.opacity = "1";
+                    dropdown.style.transform = "translateY(0)";
+                }, 10);
+                globeIcon.style.opacity = "0.8";
+                globeIcon.style.transform = "scale(1.1)";
+            };
+
+            const hideDropdown = () => {
+                dropdown.style.opacity = "0";
+                dropdown.style.transform = "translateY(4px)";
+                setTimeout(() => {
+                    dropdown.style.display = "none";
+                }, 200);
+                globeIcon.style.opacity = "1";
+                globeIcon.style.transform = "scale(1)";
+            };
+
+            wrapper.addEventListener("mouseenter", () => {
+                clearTimeout(hideTimeout);
+                showDropdown();
             });
 
             wrapper.addEventListener("mouseleave", () => {
-                dropdown.style.display = "none";
-                globeIcon.style.opacity = "1";
+                hideTimeout = setTimeout(hideDropdown, 1000);
+            });
+
+            dropdown.addEventListener("mouseenter", () => {
+                clearTimeout(hideTimeout);
+                globeIcon.style.opacity = "0.8";
+                globeIcon.style.transform = "scale(1.1)";
+            });
+
+            dropdown.addEventListener("mouseleave", () => {
+                hideTimeout = setTimeout(hideDropdown, 1000);
             });
 
             globeIcon.addEventListener("click", (e) => {
