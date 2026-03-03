@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch CamShooters Controller
 // @namespace    https://github.com/HermanGuilliman/Twitch-CamShooters-Controller
-// @version      1.0
+// @version      1.1
 // @description  Компактная панель управления для игры CamShooters (by Camelot63RU)
 // @author       Herman Guilliman
 // @match        https://www.twitch.tv/*
@@ -455,6 +455,7 @@
                 mapDropdownContent: null,
                 hideDropdownFn: null,
                 tagInput: null,
+                collapsibleElements: [],
             };
         }
 
@@ -481,6 +482,14 @@
                     ? "▶"
                     : "▼";
             }
+
+            this._updateCollapsibleVisibility();
+        }
+
+        _updateCollapsibleVisibility() {
+            this.elements.collapsibleElements.forEach((el) => {
+                el.style.display = this.isCollapsed ? "none" : "";
+            });
         }
 
         cycleButtonSize() {
@@ -661,6 +670,8 @@
             container.appendChild(header);
             container.appendChild(buttonsWrapper);
 
+            this._updateCollapsibleVisibility();
+
             return container;
         }
 
@@ -695,6 +706,12 @@
             const tagControl = this._createTagControl();
             const sizeSwitcher = this._createSizeSwitcher();
             const mapDropdown = this._createMapDropdownInHeader();
+
+            this.elements.collapsibleElements = [
+                tagControl,
+                sizeSwitcher,
+                mapDropdown,
+            ];
 
             const arrowSpan = document.createElement("span");
             arrowSpan.textContent = this.isCollapsed ? "▶" : "▼";
