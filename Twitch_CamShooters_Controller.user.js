@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch CamShooters Controller
 // @namespace    https://github.com/HermanGuilliman/Twitch-CamShooters-Controller
-// @version      0.7
+// @version      0.8
 // @description  Компактная панель управления для игры CamShooters (by Camelot63RU)
 // @author       Herman Guilliman
 // @match        https://www.twitch.tv/*
@@ -19,31 +19,58 @@
     const CONFIG = {
         containerId: "twitch-camshooters-panel",
         storageKey: "camshooters_collapsed",
+        buttonSizeKey: "camshooters_button_size",
+
+        buttonSizes: ["compact", "normal", "large"],
+        buttonSizeLabels: {
+            compact: "S",
+            normal: "M",
+            large: "L",
+        },
+        buttonSizeIcons: {
+            compact: "🔹",
+            normal: "🔷",
+            large: "⬛",
+        },
 
         commands: [
-            { cmd: "!go", hint: "Принять участие в битве", color: "#4fd682" },
+            {
+                cmd: "!go",
+                hint: "Принять участие в битве",
+                color: "#4fd682",
+                icon: "⚔️",
+            },
             {
                 cmd: "!buff",
                 hint: "Случайное влияние на персонажа",
                 color: "#5dade2",
+                icon: "✨",
             },
             {
                 cmd: "!combo",
                 hint: "Активировать ивент (нужно 3 килла)",
                 color: "#f4d03f",
+                icon: "💥",
             },
             {
                 cmd: "!tag",
                 hint: "Нарисовать граффити под ногами",
                 color: "#af7ac5",
+                icon: "🎨",
             },
             {
                 cmd: "!yo",
                 hint: "Обратить на себя внимание противников",
                 color: "#eb984e",
+                icon: "📢",
             },
-            { cmd: "!fart", hint: "Пустить газы", color: "#ec7063" },
-            { cmd: "!dance", hint: "Танцевать", color: "#ff79c6" },
+            {
+                cmd: "!fart",
+                hint: "Пустить газы",
+                color: "#ec7063",
+                icon: "💨",
+            },
+            { cmd: "!dance", hint: "Танцевать", color: "#ff79c6", icon: "💃" },
         ],
 
         maps: [
@@ -70,6 +97,62 @@
             #${CONFIG.containerId} {
                 position: relative;
                 z-index: 1 !important;
+            }
+
+            /* Анимация кнопок при смене размера */
+            .cs-btn-animated {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+
+            /* Large кнопки — пульсация при наведении */
+            .cs-btn-large:hover {
+                animation: cs-pulse 0.6s ease-in-out;
+            }
+
+            @keyframes cs-pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.04); }
+                100% { transform: scale(1); }
+            }
+
+            /* Переключатель размера */
+            .cs-size-switcher {
+                display: flex;
+                align-items: center;
+                gap: 2px;
+                background: var(--color-background-button-secondary-default);
+                border-radius: 8px;
+                padding: 1px 2px;
+                cursor: pointer;
+                user-select: none;
+                transition: background-color 0.2s;
+            }
+            .cs-size-switcher:hover {
+                background: var(--color-background-button-secondary-hover);
+            }
+            .cs-size-dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: var(--color-text-alt);
+                opacity: 0.3;
+                transition: all 0.25s ease;
+            }
+            .cs-size-dot.active {
+                opacity: 1;
+                background: #5dade2;
+            }
+            .cs-size-dot[data-size="compact"] {
+                width: 5px;
+                height: 5px;
+            }
+            .cs-size-dot[data-size="normal"] {
+                width: 7px;
+                height: 7px;
+            }
+            .cs-size-dot[data-size="large"] {
+                width: 9px;
+                height: 9px;
             }
         `;
         document.head.appendChild(style);
@@ -326,10 +409,13 @@
             this.chatService = chatService;
             this.isCollapsed =
                 localStorage.getItem(CONFIG.storageKey) === "true";
+            this.buttonSize =
+                localStorage.getItem(CONFIG.buttonSizeKey) || "compact";
             this.elements = {
                 container: null,
                 buttonsWrapper: null,
                 arrowSpan: null,
+                sizeDots: [],
             };
         }
 
@@ -351,6 +437,73 @@
             }
         }
 
+        cycleButtonSize() {
+            const sizes = CONFIG.buttonSizes;
+            const currentIndex = sizes.indexOf(this.buttonSize);
+            const nextIndex = (currentIndex + 1) % sizes.length;
+            this.buttonSize = sizes[nextIndex];
+            localStorage.setItem(CONFIG.buttonSizeKey, this.buttonSize);
+
+            this._updateSizeDots();
+            this._rebuildButtons();
+        }
+
+        _updateSizeDots() {
+            this.elements.sizeDots.forEach((dot) => {
+                if (dot.dataset.size === this.buttonSize) {
+                    dot.classList.add("active");
+                } else {
+                    dot.classList.remove("active");
+                }
+            });
+        }
+
+        _rebuildButtons() {
+            const wrapper = this.elements.buttonsWrapper;
+            if (!wrapper) return;
+
+            wrapper.style.opacity = "0";
+            wrapper.style.transform = "translateY(-4px)";
+
+            setTimeout(() => {
+                wrapper.innerHTML = "";
+
+                this._applyWrapperStyle(wrapper);
+
+                CONFIG.commands.forEach((cmdData) => {
+                    wrapper.appendChild(this._createButton(cmdData));
+                });
+
+                setTimeout(() => {
+                    wrapper.style.opacity = "1";
+                    wrapper.style.transform = "translateY(0)";
+                }, 20);
+            }, 150);
+        }
+
+        _applyWrapperStyle(wrapper) {
+            switch (this.buttonSize) {
+                case "compact":
+                    Object.assign(wrapper.style, {
+                        gap: "4px",
+                        padding: "4px 8px",
+                    });
+                    break;
+                case "normal":
+                    Object.assign(wrapper.style, {
+                        gap: "5px",
+                        padding: "6px 8px",
+                    });
+                    break;
+                case "large":
+                    Object.assign(wrapper.style, {
+                        gap: "6px",
+                        padding: "8px 8px",
+                    });
+                    break;
+            }
+        }
+
         createDOM() {
             const container = document.createElement("div");
             container.id = CONFIG.containerId;
@@ -359,7 +512,6 @@
                 borderBottom: "1px solid var(--color-border-base)",
                 display: "flex",
                 flexDirection: "column",
-
                 position: "relative",
                 zIndex: "1",
             });
@@ -370,16 +522,19 @@
             Object.assign(buttonsWrapper.style, {
                 display: this.isCollapsed ? "none" : "flex",
                 flexWrap: "wrap",
-                gap: "4px",
-                padding: "4px 8px",
+                transition: "opacity 0.15s ease, transform 0.15s ease",
+                opacity: "1",
+                transform: "translateY(0)",
             });
+
+            this.elements.buttonsWrapper = buttonsWrapper;
+            this._applyWrapperStyle(buttonsWrapper);
 
             CONFIG.commands.forEach((cmdData) => {
                 buttonsWrapper.appendChild(this._createButton(cmdData));
             });
 
             this.elements.container = container;
-            this.elements.buttonsWrapper = buttonsWrapper;
 
             container.appendChild(header);
             container.appendChild(buttonsWrapper);
@@ -415,6 +570,7 @@
                 gap: "8px",
             });
 
+            const sizeSwitcher = this._createSizeSwitcher();
             const mapDropdown = this._createMapDropdownInHeader();
 
             const arrowSpan = document.createElement("span");
@@ -422,6 +578,7 @@
             arrowSpan.style.fontSize = "8px";
             this.elements.arrowSpan = arrowSpan;
 
+            rightControls.appendChild(sizeSwitcher);
             rightControls.appendChild(mapDropdown);
             rightControls.appendChild(arrowSpan);
 
@@ -429,7 +586,10 @@
             header.appendChild(rightControls);
 
             header.addEventListener("click", (e) => {
-                if (!mapDropdown.contains(e.target)) {
+                if (
+                    !mapDropdown.contains(e.target) &&
+                    !sizeSwitcher.contains(e.target)
+                ) {
                     this.toggleCollapse();
                 }
             });
@@ -437,29 +597,38 @@
             return header;
         }
 
+        _createSizeSwitcher() {
+            const switcher = document.createElement("div");
+            switcher.className = "cs-size-switcher";
+            switcher.title = "Переключить размер кнопок";
+
+            this.elements.sizeDots = [];
+
+            CONFIG.buttonSizes.forEach((size) => {
+                const dot = document.createElement("div");
+                dot.className = "cs-size-dot";
+                dot.dataset.size = size;
+                if (size === this.buttonSize) {
+                    dot.classList.add("active");
+                }
+                switcher.appendChild(dot);
+                this.elements.sizeDots.push(dot);
+            });
+
+            switcher.addEventListener("click", (e) => {
+                e.stopPropagation();
+                this.cycleButtonSize();
+            });
+
+            return switcher;
+        }
+
         _createButton(data, labelOverride = null) {
             const btn = document.createElement("button");
-            btn.textContent = labelOverride || data.cmd;
-            btn.title = data.hint || data.cmd;
             btn.type = "button";
+            btn.classList.add("cs-btn-animated");
 
-            Object.assign(btn.style, {
-                backgroundColor:
-                    "var(--color-background-button-secondary-default)",
-                color: "var(--color-text-button-secondary)",
-                border: "none",
-                borderLeft: `3px solid ${data.color}`,
-                borderRadius: "2px",
-                padding: "2px 6px",
-                cursor: "pointer",
-                fontWeight: "600",
-                fontSize: "11px",
-                fontFamily: "inherit",
-                transition: "filter 0.2s, background-color 0.2s",
-                flexGrow: "1",
-                textAlign: "center",
-                pointerEvents: "auto",
-            });
+            this._applyButtonStyle(btn, data, labelOverride);
 
             btn.addEventListener("mouseenter", () => {
                 btn.style.backgroundColor =
@@ -484,6 +653,153 @@
             });
 
             return btn;
+        }
+
+        _applyButtonStyle(btn, data, labelOverride) {
+            btn.classList.remove("cs-btn-large");
+
+            switch (this.buttonSize) {
+                case "compact":
+                    btn.textContent = labelOverride || data.cmd;
+                    btn.title = data.hint || data.cmd;
+                    Object.assign(btn.style, {
+                        backgroundColor:
+                            "var(--color-background-button-secondary-default)",
+                        color: "var(--color-text-button-secondary)",
+                        border: "none",
+                        borderLeft: `3px solid ${data.color}`,
+                        borderRadius: "2px",
+                        padding: "2px 6px",
+                        cursor: "pointer",
+                        fontWeight: "600",
+                        fontSize: "11px",
+                        fontFamily: "inherit",
+                        transition: "filter 0.2s, background-color 0.2s",
+                        flexGrow: "1",
+                        textAlign: "center",
+                        pointerEvents: "auto",
+                        minHeight: "auto",
+                        flexBasis: "auto",
+                        borderBottom: "none",
+                        lineHeight: "normal",
+                    });
+                    break;
+
+                case "normal":
+                    btn.title = data.hint || data.cmd;
+                    btn.innerHTML = "";
+
+                    if (data.icon) {
+                        const iconSpan = document.createElement("span");
+                        iconSpan.textContent = data.icon;
+                        iconSpan.style.marginRight = "4px";
+                        iconSpan.style.fontSize = "12px";
+                        btn.appendChild(iconSpan);
+                    }
+
+                    const textSpan = document.createElement("span");
+                    textSpan.textContent = labelOverride || data.cmd;
+                    btn.appendChild(textSpan);
+
+                    Object.assign(btn.style, {
+                        backgroundColor:
+                            "var(--color-background-button-secondary-default)",
+                        color: "var(--color-text-button-secondary)",
+                        border: "none",
+                        borderLeft: `3px solid ${data.color}`,
+                        borderRadius: "4px",
+                        padding: "5px 10px",
+                        cursor: "pointer",
+                        fontWeight: "600",
+                        fontSize: "12px",
+                        fontFamily: "inherit",
+                        transition: "filter 0.2s, background-color 0.2s",
+                        flexGrow: "1",
+                        textAlign: "center",
+                        pointerEvents: "auto",
+                        minHeight: "28px",
+                        flexBasis: "auto",
+                        borderBottom: "none",
+                        lineHeight: "normal",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                    });
+                    break;
+
+                case "large":
+                    btn.title = data.hint || data.cmd;
+                    btn.innerHTML = "";
+                    btn.classList.add("cs-btn-large");
+
+                    const container = document.createElement("div");
+                    Object.assign(container.style, {
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "2px",
+                    });
+
+                    if (data.icon) {
+                        const iconEl = document.createElement("span");
+                        iconEl.textContent = data.icon;
+                        iconEl.style.fontSize = "18px";
+                        iconEl.style.lineHeight = "1";
+                        container.appendChild(iconEl);
+                    }
+
+                    const labelEl = document.createElement("span");
+                    labelEl.textContent = labelOverride || data.cmd;
+                    labelEl.style.fontSize = "11px";
+                    labelEl.style.fontWeight = "700";
+                    labelEl.style.lineHeight = "1.1";
+                    container.appendChild(labelEl);
+
+                    if (data.hint) {
+                        const hintEl = document.createElement("span");
+                        hintEl.textContent = data.hint;
+                        Object.assign(hintEl.style, {
+                            fontSize: "9px",
+                            opacity: "0.6",
+                            lineHeight: "1.1",
+                            maxWidth: "100px",
+                            textAlign: "center",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                        });
+                        container.appendChild(hintEl);
+                    }
+
+                    btn.appendChild(container);
+
+                    Object.assign(btn.style, {
+                        backgroundColor:
+                            "var(--color-background-button-secondary-default)",
+                        color: "var(--color-text-button-secondary)",
+                        border: "none",
+                        borderLeft: "none",
+                        borderBottom: `3px solid ${data.color}`,
+                        borderRadius: "6px",
+                        padding: "8px 6px",
+                        cursor: "pointer",
+                        fontWeight: "600",
+                        fontSize: "12px",
+                        fontFamily: "inherit",
+                        transition:
+                            "filter 0.2s, background-color 0.2s, transform 0.15s",
+                        flexGrow: "1",
+                        flexBasis: "calc(33.333% - 6px)",
+                        textAlign: "center",
+                        pointerEvents: "auto",
+                        minHeight: "56px",
+                        lineHeight: "normal",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                    });
+                    break;
+            }
         }
 
         _createMapDropdownInHeader() {
@@ -621,7 +937,7 @@
         }
 
         init() {
-            console.log("[CamShooters] Panel started v0.6");
+            console.log("[CamShooters] Panel started v0.8");
             injectStyles();
             this.checkInterval = setInterval(() => this.mount(), 1000);
         }
