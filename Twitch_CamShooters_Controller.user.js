@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch CamShooters Controller
 // @namespace    https://github.com/HermanGuilliman/Twitch-CamShooters-Controller
-// @version      0.8
+// @version      0.9
 // @description  Компактная панель управления для игры CamShooters (by Camelot63RU)
 // @author       Herman Guilliman
 // @match        https://www.twitch.tv/*
@@ -74,9 +74,9 @@
         ],
 
         maps: [
-            { cmd: "!map 1", label: "Карта 1", color: "#1abc9c" },
-            { cmd: "!map 2", label: "Карта 2", color: "#3498db" },
-            { cmd: "!map 3", label: "Карта 3", color: "#9b59b6" },
+            { cmd: "!map 1", label: "Карта 1", color: "#1abc9c", icon: "🏝️" },
+            { cmd: "!map 2", label: "Карта 2", color: "#3498db", icon: "🏔️" },
+            { cmd: "!map 3", label: "Карта 3", color: "#9b59b6", icon: "🌋" },
         ],
     };
 
@@ -99,12 +99,10 @@
                 z-index: 1 !important;
             }
 
-            /* Анимация кнопок при смене размера */
             .cs-btn-animated {
                 transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
             }
 
-            /* Large кнопки — пульсация при наведении */
             .cs-btn-large:hover {
                 animation: cs-pulse 0.6s ease-in-out;
             }
@@ -115,7 +113,6 @@
                 100% { transform: scale(1); }
             }
 
-            /* Переключатель размера */
             .cs-size-switcher {
                 display: flex;
                 align-items: center;
@@ -416,6 +413,8 @@
                 buttonsWrapper: null,
                 arrowSpan: null,
                 sizeDots: [],
+                mapDropdownContent: null,
+                hideDropdownFn: null,
             };
         }
 
@@ -446,6 +445,7 @@
 
             this._updateSizeDots();
             this._rebuildButtons();
+            this._rebuildMapButtons();
         }
 
         _updateSizeDots() {
@@ -467,7 +467,6 @@
 
             setTimeout(() => {
                 wrapper.innerHTML = "";
-
                 this._applyWrapperStyle(wrapper);
 
                 CONFIG.commands.forEach((cmdData) => {
@@ -479,6 +478,82 @@
                     wrapper.style.transform = "translateY(0)";
                 }, 20);
             }, 150);
+        }
+
+        _rebuildMapButtons() {
+            const dropdown = this.elements.mapDropdownContent;
+            if (!dropdown) return;
+
+            const buttons = dropdown.querySelectorAll("button");
+            buttons.forEach((btn) => btn.remove());
+
+            CONFIG.maps.forEach((mapData) => {
+                const mapBtn = this._createMapButton(mapData);
+
+                mapBtn.addEventListener("click", () => {
+                    if (this.elements.hideDropdownFn) {
+                        this.elements.hideDropdownFn();
+                    }
+                });
+
+                dropdown.appendChild(mapBtn);
+            });
+        }
+
+        _createMapButton(mapData) {
+            const mapBtn = this._createButton(mapData, mapData.label);
+
+            Object.assign(mapBtn.style, {
+                textAlign: "left",
+                borderRadius: "4px",
+                borderLeftWidth: "4px",
+                transition: "background-color 0.2s, transform 0.1s",
+            });
+
+            switch (this.buttonSize) {
+                case "compact":
+                    Object.assign(mapBtn.style, {
+                        fontSize: "11px",
+                        padding: "4px 8px",
+                        minHeight: "auto",
+                        flexBasis: "auto",
+                        borderBottom: "none",
+                        borderLeft: `4px solid ${mapData.color}`,
+                        display: "block",
+                    });
+                    break;
+                case "normal":
+                    Object.assign(mapBtn.style, {
+                        fontSize: "12px",
+                        padding: "6px 10px",
+                        minHeight: "auto",
+                        flexBasis: "auto",
+                        borderBottom: "none",
+                        borderLeft: `4px solid ${mapData.color}`,
+                    });
+                    break;
+                case "large":
+                    Object.assign(mapBtn.style, {
+                        fontSize: "13px",
+                        padding: "8px 12px",
+                        minHeight: "auto",
+                        flexBasis: "auto",
+                        borderBottom: `3px solid ${mapData.color}`,
+                        borderLeft: "none",
+                        textAlign: "center",
+                    });
+                    break;
+            }
+
+            mapBtn.addEventListener("mouseenter", () => {
+                mapBtn.style.transform = "translateX(2px)";
+            });
+
+            mapBtn.addEventListener("mouseleave", () => {
+                mapBtn.style.transform = "translateX(0)";
+            });
+
+            return mapBtn;
         }
 
         _applyWrapperStyle(wrapper) {
@@ -682,6 +757,9 @@
                         flexBasis: "auto",
                         borderBottom: "none",
                         lineHeight: "normal",
+                        display: "inline-block",
+                        alignItems: "",
+                        justifyContent: "",
                     });
                     break;
 
@@ -852,32 +930,19 @@
             dropdownTitle.textContent = "Голосование";
             dropdown.appendChild(dropdownTitle);
 
-            CONFIG.maps.forEach((mapData) => {
-                const mapBtn = this._createButton(mapData, mapData.label);
-                mapBtn.style.textAlign = "left";
-                mapBtn.style.fontSize = "11px";
-                mapBtn.style.padding = "4px 8px";
-                mapBtn.style.borderRadius = "4px";
-                mapBtn.style.borderLeftWidth = "4px";
-                mapBtn.style.transition =
-                    "background-color 0.2s, transform 0.1s";
-
-                mapBtn.addEventListener("mouseenter", () => {
-                    mapBtn.style.transform = "translateX(2px)";
-                });
-
-                mapBtn.addEventListener("mouseleave", () => {
-                    mapBtn.style.transform = "translateX(0)";
-                });
-
-                mapBtn.addEventListener("click", () => {
-                    hideDropdown();
-                });
-
-                dropdown.appendChild(mapBtn);
-            });
+            this.elements.mapDropdownContent = dropdown;
 
             let hideTimeout;
+
+            const hideDropdown = () => {
+                dropdown.style.opacity = "0";
+                dropdown.style.transform = "translateY(4px)";
+                setTimeout(() => {
+                    dropdown.style.display = "none";
+                }, 200);
+                globeIcon.style.opacity = "1";
+                globeIcon.style.transform = "scale(1)";
+            };
 
             const showDropdown = () => {
                 dropdown.style.display = "flex";
@@ -889,15 +954,17 @@
                 globeIcon.style.transform = "scale(1.1)";
             };
 
-            const hideDropdown = () => {
-                dropdown.style.opacity = "0";
-                dropdown.style.transform = "translateY(4px)";
-                setTimeout(() => {
-                    dropdown.style.display = "none";
-                }, 200);
-                globeIcon.style.opacity = "1";
-                globeIcon.style.transform = "scale(1)";
-            };
+            this.elements.hideDropdownFn = hideDropdown;
+
+            CONFIG.maps.forEach((mapData) => {
+                const mapBtn = this._createMapButton(mapData);
+
+                mapBtn.addEventListener("click", () => {
+                    hideDropdown();
+                });
+
+                dropdown.appendChild(mapBtn);
+            });
 
             wrapper.addEventListener("mouseenter", () => {
                 clearTimeout(hideTimeout);
@@ -937,7 +1004,7 @@
         }
 
         init() {
-            console.log("[CamShooters] Panel started v0.8");
+            console.log("[CamShooters] Panel started v0.9");
             injectStyles();
             this.checkInterval = setInterval(() => this.mount(), 1000);
         }
