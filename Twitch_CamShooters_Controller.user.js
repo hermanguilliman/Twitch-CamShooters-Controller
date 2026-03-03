@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch CamShooters Controller
 // @namespace    https://github.com/HermanGuilliman/Twitch-CamShooters-Controller
-// @version      0.9
+// @version      1.0
 // @description  Компактная панель управления для игры CamShooters (by Camelot63RU)
 // @author       Herman Guilliman
 // @match        https://www.twitch.tv/*
@@ -20,6 +20,7 @@
         containerId: "twitch-camshooters-panel",
         storageKey: "camshooters_collapsed",
         buttonSizeKey: "camshooters_button_size",
+        tagNumberKey: "camshooters_tag_number",
 
         buttonSizes: ["compact", "normal", "large"],
         buttonSizeLabels: {
@@ -57,6 +58,7 @@
                 hint: "Нарисовать граффити под ногами",
                 color: "#af7ac5",
                 icon: "🎨",
+                hasArg: true,
             },
             {
                 cmd: "!yo",
@@ -150,6 +152,42 @@
             .cs-size-dot[data-size="large"] {
                 width: 9px;
                 height: 9px;
+            }
+
+            .cs-tag-input {
+                width: 28px;
+                height: 18px;
+                text-align: center;
+                font-size: 11px;
+                font-weight: 700;
+                font-family: inherit;
+                border: 1px solid var(--color-border-base);
+                border-radius: 4px;
+                background: var(--color-background-button-secondary-default);
+                color: var(--color-text-button-secondary);
+                outline: none;
+                padding: 0 2px;
+                transition: border-color 0.2s, box-shadow 0.2s;
+            }
+            .cs-tag-input:focus {
+                border-color: #af7ac5;
+                box-shadow: 0 0 0 2px rgba(175, 122, 197, 0.25);
+            }
+            .cs-tag-input:hover {
+                border-color: var(--color-border-hover, #af7ac5);
+            }
+
+            .cs-tag-wrapper {
+                display: flex;
+                align-items: center;
+                gap: 3px;
+                font-size: 10px;
+                color: var(--color-text-alt);
+                user-select: none;
+            }
+            .cs-tag-label {
+                font-weight: 600;
+                opacity: 0.7;
             }
         `;
         document.head.appendChild(style);
@@ -408,6 +446,7 @@
                 localStorage.getItem(CONFIG.storageKey) === "true";
             this.buttonSize =
                 localStorage.getItem(CONFIG.buttonSizeKey) || "compact";
+            this.tagNumber = localStorage.getItem(CONFIG.tagNumberKey) || "0";
             this.elements = {
                 container: null,
                 buttonsWrapper: null,
@@ -415,11 +454,19 @@
                 sizeDots: [],
                 mapDropdownContent: null,
                 hideDropdownFn: null,
+                tagInput: null,
             };
         }
 
         exists() {
             return !!document.getElementById(CONFIG.containerId);
+        }
+
+        getCommandText(cmdData) {
+            if (cmdData.hasArg) {
+                return `${cmdData.cmd} ${this.tagNumber}`;
+            }
+            return cmdData.cmd;
         }
 
         toggleCollapse() {
@@ -645,6 +692,7 @@
                 gap: "8px",
             });
 
+            const tagControl = this._createTagControl();
             const sizeSwitcher = this._createSizeSwitcher();
             const mapDropdown = this._createMapDropdownInHeader();
 
@@ -653,6 +701,7 @@
             arrowSpan.style.fontSize = "8px";
             this.elements.arrowSpan = arrowSpan;
 
+            rightControls.appendChild(tagControl);
             rightControls.appendChild(sizeSwitcher);
             rightControls.appendChild(mapDropdown);
             rightControls.appendChild(arrowSpan);
@@ -663,13 +712,56 @@
             header.addEventListener("click", (e) => {
                 if (
                     !mapDropdown.contains(e.target) &&
-                    !sizeSwitcher.contains(e.target)
+                    !sizeSwitcher.contains(e.target) &&
+                    !tagControl.contains(e.target)
                 ) {
                     this.toggleCollapse();
                 }
             });
 
             return header;
+        }
+
+        _createTagControl() {
+            const wrapper = document.createElement("div");
+            wrapper.className = "cs-tag-wrapper";
+            wrapper.title = "Номер граффити для !tag";
+
+            const label = document.createElement("span");
+            label.className = "cs-tag-label";
+            label.textContent = "🎨";
+
+            const input = document.createElement("input");
+            input.type = "text";
+            input.className = "cs-tag-input";
+            input.value = this.tagNumber;
+            input.maxLength = 3;
+            input.placeholder = "0";
+
+            this.elements.tagInput = input;
+
+            input.addEventListener("click", (e) => {
+                e.stopPropagation();
+            });
+
+            input.addEventListener("input", (e) => {
+                const val = e.target.value.replace(/[^0-9]/g, "");
+                e.target.value = val;
+                this.tagNumber = val || "0";
+                localStorage.setItem(CONFIG.tagNumberKey, this.tagNumber);
+            });
+
+            input.addEventListener("keydown", (e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") {
+                    input.blur();
+                }
+            });
+
+            wrapper.appendChild(label);
+            wrapper.appendChild(input);
+
+            return wrapper;
         }
 
         _createSizeSwitcher() {
@@ -723,8 +815,9 @@
             btn.addEventListener("click", (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log(`[CamShooters] Кнопка: ${data.cmd}`);
-                this.chatService.sendMessage(data.cmd);
+                const commandText = this.getCommandText(data);
+                console.log(`[CamShooters] Кнопка: ${commandText}`);
+                this.chatService.sendMessage(commandText);
             });
 
             return btn;
@@ -1004,7 +1097,7 @@
         }
 
         init() {
-            console.log("[CamShooters] Panel started v0.9");
+            console.log("[CamShooters] Panel started v1.0");
             injectStyles();
             this.checkInterval = setInterval(() => this.mount(), 1000);
         }
