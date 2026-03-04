@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch CamShooters Controller
 // @namespace    https://github.com/HermanGuilliman/Twitch-CamShooters-Controller
-// @version      1.1
+// @version      1.2
 // @description  Компактная панель управления для игры CamShooters (by Camelot63RU)
 // @author       Herman Guilliman
 // @match        https://www.twitch.tv/*
@@ -21,6 +21,7 @@
         storageKey: "camshooters_collapsed",
         buttonSizeKey: "camshooters_button_size",
         tagNumberKey: "camshooters_tag_number",
+        titleIconKey: "camshooters_title_icon",
 
         buttonSizes: ["compact", "normal", "large"],
         buttonSizeLabels: {
@@ -33,6 +34,18 @@
             normal: "🔷",
             large: "⬛",
         },
+
+        titleIcons: [
+            { type: "emoji", value: "🔫" },
+            {
+                type: "image",
+                value: "https://static-cdn.jtvnw.net/jtv_user_pictures/camelot63ru-profile_image-c274e4003eddbe3d-70x70.png",
+            },
+            {
+                type: "image",
+                value: "https://static-cdn.jtvnw.net/emoticons/v2/264767/default/light/2.0",
+            },
+        ],
 
         commands: [
             {
@@ -188,6 +201,39 @@
             .cs-tag-label {
                 font-weight: 600;
                 opacity: 0.7;
+            }
+
+            .cs-title-icon {
+                cursor: pointer;
+                user-select: none;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                transition: transform 0.2s ease, opacity 0.15s ease;
+                vertical-align: middle;
+            }
+            .cs-title-icon:hover {
+                transform: scale(1.15);
+            }
+            .cs-title-icon:active {
+                transform: scale(0.9);
+            }
+            .cs-title-icon img {
+                width: 16px;
+                height: 16px;
+                border-radius: 3px;
+                vertical-align: middle;
+                object-fit: cover;
+            }
+
+            @keyframes cs-icon-swap {
+                0% { transform: scale(1) rotate(0deg); opacity: 1; }
+                40% { transform: scale(0.5) rotate(-15deg); opacity: 0.3; }
+                70% { transform: scale(1.2) rotate(5deg); opacity: 1; }
+                100% { transform: scale(1) rotate(0deg); opacity: 1; }
+            }
+            .cs-title-icon.swapping {
+                animation: cs-icon-swap 0.35s ease-in-out;
             }
         `;
         document.head.appendChild(style);
@@ -447,6 +493,17 @@
             this.buttonSize =
                 localStorage.getItem(CONFIG.buttonSizeKey) || "compact";
             this.tagNumber = localStorage.getItem(CONFIG.tagNumberKey) || "0";
+            this.titleIconIndex = parseInt(
+                localStorage.getItem(CONFIG.titleIconKey) || "0",
+                10,
+            );
+            if (
+                isNaN(this.titleIconIndex) ||
+                this.titleIconIndex < 0 ||
+                this.titleIconIndex >= CONFIG.titleIcons.length
+            ) {
+                this.titleIconIndex = 0;
+            }
             this.elements = {
                 container: null,
                 buttonsWrapper: null,
@@ -456,6 +513,7 @@
                 hideDropdownFn: null,
                 tagInput: null,
                 collapsibleElements: [],
+                titleIconEl: null,
             };
         }
 
@@ -502,6 +560,44 @@
             this._updateSizeDots();
             this._rebuildButtons();
             this._rebuildMapButtons();
+        }
+
+        cycleTitleIcon() {
+            this.titleIconIndex =
+                (this.titleIconIndex + 1) % CONFIG.titleIcons.length;
+            localStorage.setItem(
+                CONFIG.titleIconKey,
+                this.titleIconIndex.toString(),
+            );
+            this._updateTitleIcon();
+        }
+
+        _updateTitleIcon() {
+            const iconEl = this.elements.titleIconEl;
+            if (!iconEl) return;
+
+            const iconData = CONFIG.titleIcons[this.titleIconIndex];
+
+            iconEl.classList.remove("swapping");
+
+            void iconEl.offsetWidth;
+            iconEl.classList.add("swapping");
+
+            setTimeout(() => {
+                iconEl.innerHTML = "";
+                if (iconData.type === "emoji") {
+                    iconEl.textContent = iconData.value;
+                } else if (iconData.type === "image") {
+                    const img = document.createElement("img");
+                    img.src = iconData.value;
+                    img.alt = "icon";
+                    iconEl.appendChild(img);
+                }
+            }, 120);
+
+            setTimeout(() => {
+                iconEl.classList.remove("swapping");
+            }, 400);
         }
 
         _updateSizeDots() {
@@ -675,6 +771,33 @@
             return container;
         }
 
+        _createTitleIconElement() {
+            const iconEl = document.createElement("span");
+            iconEl.className = "cs-title-icon";
+            iconEl.title = "Ctrl+клик — сменить иконку";
+
+            const iconData = CONFIG.titleIcons[this.titleIconIndex];
+            if (iconData.type === "emoji") {
+                iconEl.textContent = iconData.value;
+            } else if (iconData.type === "image") {
+                const img = document.createElement("img");
+                img.src = iconData.value;
+                img.alt = "icon";
+                iconEl.appendChild(img);
+            }
+
+            iconEl.addEventListener("click", (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    this.cycleTitleIcon();
+                }
+            });
+
+            this.elements.titleIconEl = iconEl;
+            return iconEl;
+        }
+
         _createHeader() {
             const header = document.createElement("div");
             Object.assign(header.style, {
@@ -694,7 +817,18 @@
             });
 
             const titleSpan = document.createElement("span");
-            titleSpan.textContent = "🔫 Панель CamShooters";
+            Object.assign(titleSpan.style, {
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+            });
+
+            const titleIcon = this._createTitleIconElement();
+            const titleText = document.createElement("span");
+            titleText.textContent = "Панель CamShooters";
+
+            titleSpan.appendChild(titleIcon);
+            titleSpan.appendChild(titleText);
 
             const rightControls = document.createElement("div");
             Object.assign(rightControls.style, {
@@ -1114,7 +1248,7 @@
         }
 
         init() {
-            console.log("[CamShooters] Panel started v1.0");
+            console.log("[CamShooters] Panel started");
             injectStyles();
             this.checkInterval = setInterval(() => this.mount(), 1000);
         }
